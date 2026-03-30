@@ -37,7 +37,7 @@ export class LangChainGenerator {
       this.generateConfigFiles(agentConfig, llmConfig, options),
     ]);
 
-    let filesGenerated = core + agent + llm + api + skillsModule + config;
+    const filesGenerated = core + agent + llm + api + skillsModule + config;
 
     // Conditional modules
     const [memory, tests, docker, docs] = await Promise.all([

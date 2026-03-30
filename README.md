@@ -8,14 +8,15 @@ This plugin exports your configured OpenClaw agent into a standalone service tha
 
 ## Features
 
-- ✅ **Multiple Frameworks**: LangChain, LangGraph, CrewAI (Python), LangChain4j (Java)
+- ✅ **LangChain Support**: Full Python LangChain code generation
+- 🚧 **More Frameworks**: LangGraph, CrewAI (planned), LangChain4j (planned)
 - ✅ **Dual API**: REST API + WebSocket API
 - ✅ **Complete Migration**: Agent config, skills, memory, LLM providers
 - ✅ **Production Quality**: Monitoring, logging, error handling
-- ✅ **Testing Suite**: Unit tests, integration tests, E2E tests
+- 🚧 **Testing Suite**: Test generation (in development)
 - ✅ **Quality Validation**: Linting, security scanning, coverage checks
 - ✅ **Docker Support**: Production-optimized Dockerfiles
-- ✅ **Kubernetes Ready**: K8s manifests for deployment
+- 🚧 **Kubernetes Ready**: K8s manifests (planned)
 
 ## Installation
 
@@ -354,9 +355,9 @@ kubectl get pods -l app=agent-service
 
 ## Quality Standards
 
-Generated services meet these standards:
+Generated services aim to meet these standards:
 
-- ✅ Test coverage ≥ 80%
+- 🚧 Test coverage ≥ 80% (test generation in development)
 - ✅ No lint errors
 - ✅ No security vulnerabilities
 - ✅ Docker build successful
