@@ -1,0 +1,250 @@
+"""
+WebSocket API Handler
+
+Auto-generated from OpenClaw agent workspace
+"""
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from typing import Dict, Any, Optional
+import json
+import asyncio
+import structlog
+
+from agent.prompts import PromptTemplates, SYSTEM_PROMPT
+from agent.memory import AgentMemory
+from llm.providers import LLMProviderManager
+
+logger = structlog.get_logger()
+router = APIRouter()
+
+
+class ConnectionManager:
+    """Manage WebSocket connections."""
+
+    def __init__(self):
+        """Initialize connection manager."""
+        self.active_connections: Dict[str, WebSocket] = {}
+        self.sessions: Dict[str, Dict[str, Any]] = {}
+
+    async def connect(self, websocket: WebSocket, session_id: str):
+        """Accept and register a WebSocket connection.
+
+        Args:
+            websocket: WebSocket connection
+            session_id: Session identifier
+        """
+        await websocket.accept()
+        self.active_connections[session_id] = websocket
+
+        # Initialize session if needed
+        if session_id not in self.sessions:
+            self.sessions[session_id] = {
+                "messages": [],
+                "memory": AgentMemory()
+            }
+
+        logger.info("WebSocket connected", session_id=session_id)
+
+    def disconnect(self, session_id: str):
+        """Remove a WebSocket connection.
+
+        Args:
+            session_id: Session identifier
+        """
+        if session_id in self.active_connections:
+            del self.active_connections[session_id]
+            logger.info("WebSocket disconnected", session_id=session_id)
+
+    async def send_message(self, session_id: str, message: Dict[str, Any]):
+        """Send a message to a specific session.
+
+        Args:
+            session_id: Session identifier
+            message: Message to send
+        """
+        if session_id in self.active_connections:
+            websocket = self.active_connections[session_id]
+            await websocket.send_json(message)
+
+    async def broadcast(self, message: Dict[str, Any]):
+        """Broadcast a message to all connections.
+
+        Args:
+            message: Message to broadcast
+        """
+        for session_id, websocket in self.active_connections.items():
+            await websocket.send_json(message)
+
+
+# Global connection manager
+manager = ConnectionManager()
+
+
+@router.websocket("")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time chat.
+
+    Protocol:
+        Client -> Server:
+            {
+                "type": "message",
+                "content": "Hello",
+                "session_id": "optional-session-id"
+            }
+
+        Server -> Client:
+            {
+                "type": "response",
+                "content": "Hello!",
+                "session_id": "session-123"
+            }
+
+            or streaming tokens:
+            {
+                "type": "token",
+                "content": "Hel",
+                "session_id": "session-123"
+            }
+    """
+    session_id = None
+
+    try:
+        # Accept connection
+        await websocket.accept()
+
+        # Wait for initial message with session_id
+        initial_data = await websocket.receive_json()
+        session_id = initial_data.get("session_id", f"ws-{id(websocket)}")
+
+        # Register connection
+        await manager.connect(websocket, session_id)
+
+        # Initialize LLM and memory
+        from llm.config import load_llm_config
+        llm_config = load_llm_config()
+        llm_manager = LLMProviderManager(llm_config)
+        memory = manager.sessions[session_id]["memory"]
+
+        logger.info("WebSocket session started", session_id=session_id)
+
+        # Message loop
+        while True:
+            try:
+                # Receive message
+                data = await websocket.receive_json()
+
+                if data.get("type") == "message":
+                    # Process message
+                    user_message = data.get("content", "")
+
+                    logger.info("Received WebSocket message",
+                               session_id=session_id,
+                               message_len=len(user_message))
+
+                    # Build context
+                    session = manager.sessions[session_id]
+                    chat_history = "\n".join([
+                        f"Human: {msg['human']}\nAssistant: {msg['assistant']}"
+                        for msg in session["messages"][-10:]
+                    ])
+
+                    memory_context = memory.get_context_window(max_chars=4000)
+
+                    # Get LLM
+                    llm = llm_manager.get_provider()
+
+                    # Format prompt
+                    prompt = PromptTemplates.format_chat_prompt(
+                        system_prompt=SYSTEM_PROMPT,
+                        chat_history=chat_history,
+                        input=user_message,
+                        long_term_memory=memory_context
+                    )
+
+                    # Stream response (if supported)
+                    try:
+                        response_text = ""
+
+                        # Try streaming
+                        async for chunk in llm.astream(prompt):
+                            token = chunk.content if hasattr(chunk, 'content') else str(chunk)
+                            response_text += token
+
+                            # Send token
+                            await manager.send_message(session_id, {
+                                "type": "token",
+                                "content": token,
+                                "session_id": session_id
+                            })
+
+                            # Small delay for smooth streaming
+                            await asyncio.sleep(0.01)
+
+                        # Send complete response
+                        await manager.send_message(session_id, {
+                            "type": "response",
+                            "content": response_text,
+                            "session_id": session_id,
+                            "done": True
+                        })
+
+                    except AttributeError:
+                        # Fallback to non-streaming
+                        response = await llm.ainvoke(prompt)
+                        response_text = response.content if hasattr(response, 'content') else str(response)
+
+                        await manager.send_message(session_id, {
+                            "type": "response",
+                            "content": response_text,
+                            "session_id": session_id
+                        })
+
+                    # Update session
+                    session["messages"].append({
+                        "human": user_message,
+                        "assistant": response_text
+                    })
+
+                    logger.info("WebSocket response sent",
+                               session_id=session_id,
+                               response_len=len(response_text))
+
+                elif data.get("type") == "ping":
+                    # Heartbeat
+                    await manager.send_message(session_id, {
+                        "type": "pong",
+                        "session_id": session_id
+                    })
+
+            except json.JSONDecodeError:
+                logger.warning("Invalid JSON received",
+                              session_id=session_id)
+                await manager.send_message(session_id, {
+                    "type": "error",
+                    "message": "Invalid JSON format"
+                })
+
+            except WebSocketDisconnect:
+                logger.info("WebSocket disconnected by client",
+                           session_id=session_id)
+                break
+
+    except WebSocketDisconnect:
+        logger.info("WebSocket connection closed")
+
+    except Exception as e:
+        logger.error("WebSocket error",
+                    session_id=session_id,
+                    error=str(e))
+
+        try:
+            await manager.send_message(session_id, {
+                "type": "error",
+                "message": f"Server error: {str(e)}"
+            })
+        except:
+            pass
+
+    finally:
+        if session_id:
+            manager.disconnect(session_id)

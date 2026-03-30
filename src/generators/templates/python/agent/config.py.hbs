@@ -1,0 +1,54 @@
+"""
+Agent Configuration
+
+Auto-generated from OpenClaw agent workspace
+"""
+
+from typing import Optional
+from pydantic import BaseModel, Field
+import yaml
+from pathlib import Path
+
+
+class AgentIdentity(BaseModel):
+    """Agent identity configuration."""
+    name: str = Field(default="Agent", description="Agent name")
+    emoji: str = Field(default="🤖", description="Agent emoji")
+    vibe: str = Field(default="Professional and helpful", description="Agent vibe/personality")
+
+
+class AgentConfig(BaseModel):
+    """Main agent configuration."""
+    identity: AgentIdentity
+    system_prompt: str
+    user_context: str
+    operating_rules: str
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+def load_agent_config(config_path: str = "config/agent.yaml") -> AgentConfig:
+    """Load agent configuration from YAML file."""
+    config_file = Path(config_path)
+
+    if not config_file.exists():
+        raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
+    with open(config_file, 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f)
+
+    return AgentConfig(
+        identity=AgentIdentity(**data.get('identity', {})),
+        system_prompt=data.get('system_prompt', ''),
+        user_context=data.get('user_context', ''),
+        operating_rules=data.get('operating_rules', ''),
+    )
+
+
+# Default configuration
+DEFAULT_IDENTITY = AgentIdentity(
+    name="{{identity.name}}",
+    emoji="{{identity.emoji}}",
+    vibe="{{identity.vibe}}"
+)

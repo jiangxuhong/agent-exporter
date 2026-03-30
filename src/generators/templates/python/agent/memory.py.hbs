@@ -1,0 +1,155 @@
+"""
+Agent Memory Management
+
+Auto-generated from OpenClaw agent workspace
+"""
+
+from typing import List, Optional
+from pathlib import Path
+from datetime import datetime
+import structlog
+
+logger = structlog.get_logger()
+
+
+class AgentMemory:
+    """Manage agent memory: long-term and daily memories."""
+
+    def __init__(self, memory_dir: str = "memory"):
+        """Initialize memory manager.
+
+        Args:
+            memory_dir: Directory containing memory files
+        """
+        self.memory_dir = Path(memory_dir)
+        self.long_term_file = self.memory_dir / "long_term.md"
+        self.daily_dir = self.memory_dir / "daily"
+
+        self._long_term_cache: Optional[str] = None
+        self._daily_cache: dict[str, str] = {}
+
+    def load_long_term_memory(self) -> str:
+        """Load long-term memory from MEMORY.md."""
+        if self._long_term_cache is not None:
+            return self._long_term_cache
+
+        try:
+            if self.long_term_file.exists():
+                content = self.long_term_file.read_text(encoding='utf-8')
+                self._long_term_cache = content
+                logger.info("Loaded long-term memory", chars=len(content))
+                return content
+        except Exception as e:
+            logger.error("Failed to load long-term memory", error=str(e))
+
+        return ""
+
+    def load_daily_memories(self, limit: int = 7) -> List[str]:
+        """Load recent daily memories.
+
+        Args:
+            limit: Maximum number of daily memories to load
+
+        Returns:
+            List of daily memory contents (most recent first)
+        """
+        memories = []
+
+        try:
+            if not self.daily_dir.exists():
+                return memories
+
+            # Get all .md files sorted by date (newest first)
+            files = sorted(
+                self.daily_dir.glob("*.md"),
+                key=lambda f: f.name,
+                reverse=True
+            )[:limit]
+
+            for file in files:
+                if file.name in self._daily_cache:
+                    memories.append(self._daily_cache[file.name])
+                else:
+                    try:
+                        content = file.read_text(encoding='utf-8')
+                        self._daily_cache[file.name] = content
+                        memories.append(content)
+                    except Exception as e:
+                        logger.warning("Failed to load daily memory",
+                                      file=file.name,
+                                      error=str(e))
+
+            logger.info("Loaded daily memories", count=len(memories))
+
+        except Exception as e:
+            logger.error("Failed to load daily memories", error=str(e))
+
+        return memories
+
+    def get_context_window(self, max_chars: int = 8000) -> str:
+        """Get memory context within character limit.
+
+        Args:
+            max_chars: Maximum characters for memory context
+
+        Returns:
+            Formatted memory string
+        """
+        parts = []
+
+        # Long-term memory (highest priority)
+        long_term = self.load_long_term_memory()
+        if long_term:
+            parts.append(f"# Long-term Memory\n\n{long_term}")
+
+        # Recent daily memories
+        daily_memories = self.load_daily_memories(limit=5)
+        if daily_memories:
+            daily_text = "\n\n---\n\n".join(daily_memories)
+            parts.append(f"# Recent Memories\n\n{daily_text}")
+
+        context = "\n\n".join(parts)
+
+        # Truncate if needed
+        if len(context) > max_chars:
+            context = context[:max_chars] + "\n\n... [truncated]"
+            logger.warning("Memory context truncated",
+                          original_len=len(context),
+                          max_chars=max_chars)
+
+        return context
+
+    def save_daily_memory(self, content: str, date: Optional[str] = None) -> None:
+        """Save a daily memory entry.
+
+        Args:
+            content: Memory content to save
+            date: Date string (YYYY-MM-DD), defaults to today
+        """
+        if date is None:
+            date = datetime.now().strftime("%Y-%m-%d")
+
+        try:
+            self.daily_dir.mkdir(parents=True, exist_ok=True)
+            file_path = self.daily_dir / f"{date}.md"
+
+            # Append if file exists
+            mode = 'a' if file_path.exists() else 'w'
+            with open(file_path, mode, encoding='utf-8') as f:
+                if mode == 'a':
+                    f.write("\n\n")
+                f.write(f"# {date}\n\n")
+                f.write(content)
+
+            logger.info("Saved daily memory", date=date)
+
+        except Exception as e:
+            logger.error("Failed to save daily memory",
+                        date=date,
+                        error=str(e))
+
+    def clear_cache(self) -> None:
+        """Clear memory cache."""
+        self._long_term_cache = None
+        self._daily_cache.clear()
+        logger.info("Memory cache cleared")

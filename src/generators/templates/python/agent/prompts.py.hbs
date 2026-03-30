@@ -1,0 +1,110 @@
+"""
+Agent Prompts
+
+Auto-generated from OpenClaw agent workspace
+{{!-- Source files: SOUL.md, USER.md, AGENTS.md --}}
+"""
+
+
+class SystemPrompt:
+    """System prompt loaded from agent configuration."""
+
+    # From SOUL.md - Persona and boundaries
+    SOUL_PROMPT = """
+{{soulMd}}
+"""
+
+    # From USER.md - User context
+    USER_CONTEXT = """
+{{userMd}}
+"""
+
+    # From AGENTS.md - Operating instructions
+    OPERATING_INSTRUCTIONS = """
+{{agentsMd}}
+"""
+
+    @classmethod
+    def build_system_prompt(cls) -> str:
+        """Build complete system prompt."""
+        parts = []
+
+        if cls.SOUL_PROMPT.strip():
+            parts.append("# Persona\n" + cls.SOUL_PROMPT.strip())
+
+        if cls.USER_CONTEXT.strip():
+            parts.append("# User Context\n" + cls.USER_CONTEXT.strip())
+
+        if cls.OPERATING_INSTRUCTIONS.strip():
+            parts.append("# Operating Instructions\n" + cls.OPERATING_INSTRUCTIONS.strip())
+
+        return "\n\n---\n\n".join(parts)
+
+
+class PromptTemplates:
+    """Prompt templates for different scenarios."""
+
+    # Chat prompt template
+    CHAT_TEMPLATE = """You are an AI assistant with the following characteristics:
+
+{system_prompt}
+
+---
+
+Current conversation:
+{chat_history}
+
+Human: {input}
+
+Assistant:"""
+
+    # Memory-enhanced prompt template
+    MEMORY_TEMPLATE = """You are an AI assistant with the following characteristics:
+
+{system_prompt}
+
+---
+
+Long-term memory:
+{long_term_memory}
+
+Recent memories:
+{recent_memories}
+
+---
+
+Current conversation:
+{chat_history}
+
+Human: {input}
+
+Assistant:"""
+
+    @classmethod
+    def format_chat_prompt(
+        cls,
+        system_prompt: str,
+        chat_history: str,
+        input: str,
+        long_term_memory: str = "",
+        recent_memories: str = ""
+    ) -> str:
+        """Format chat prompt with optional memory."""
+        if long_term_memory or recent_memories:
+            return cls.MEMORY_TEMPLATE.format(
+                system_prompt=system_prompt,
+                long_term_memory=long_term_memory,
+                recent_memories=recent_memories,
+                chat_history=chat_history,
+                input=input
+            )
+        else:
+            return cls.CHAT_TEMPLATE.format(
+                system_prompt=system_prompt,
+                chat_history=chat_history,
+                input=input
+            )
+
+
+# Pre-built system prompt
+SYSTEM_PROMPT = SystemPrompt.build_system_prompt()

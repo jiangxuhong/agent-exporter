@@ -1,0 +1,71 @@
+{
+  "id": "agent-exporter",
+  "name": "Agent Exporter",
+  "version": "0.1.0",
+  "description": "Export OpenClaw agents as production-ready standalone services with comprehensive testing and validation",
+  "author": "OpenClaw",
+  "license": "MIT",
+  "keywords": [
+    "export",
+    "agent",
+    "langchain",
+    "langgraph",
+    "crewai",
+    "production",
+    "standalone"
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "defaultFramework": {
+        "type": "string",
+        "enum": ["langchain", "langgraph", "crewai", "langchain4j"],
+        "default": "langchain",
+        "description": "Default framework for exported services"
+      },
+      "defaultLanguage": {
+        "type": "string",
+        "enum": ["python", "java"],
+        "default": "python",
+        "description": "Default programming language"
+      },
+      "defaultOutputDir": {
+        "type": "string",
+        "default": "./agent-service",
+        "description": "Default output directory for exported services"
+      },
+      "testCoverageThreshold": {
+        "type": "number",
+        "default": 80,
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Minimum test coverage percentage"
+      },
+      "enableValidation": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable automatic validation after export"
+      }
+    },
+    "additionalProperties": false
+  },
+  "cli": {
+    "commands": [
+      {
+        "name": "agent export",
+        "description": "Export agent as standalone service",
+        "handler": "./dist/cli/commands/export.js"
+      },
+      {
+        "name": "agent validate",
+        "description": "Validate exported service",
+        "handler": "./dist/cli/commands/validate.js"
+      },
+      {
+        "name": "agent test",
+        "description": "Run tests for exported service",
+        "handler": "./dist/cli/commands/test.js"
+      }
+    ]
+  }
+}

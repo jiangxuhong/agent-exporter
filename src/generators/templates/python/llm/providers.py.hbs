@@ -1,0 +1,162 @@
+"""
+LLM Providers
+
+Auto-generated from OpenClaw configuration
+"""
+
+from typing import Optional, Dict, Any, List
+from langchain.llms.base import BaseLLM
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+import structlog
+
+logger = structlog.get_logger()
+
+
+class LLMProviderFactory:
+    """Factory for creating LLM providers."""
+
+    @staticmethod
+    def create_provider(
+        provider_id: str,
+        model: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        **kwargs
+    ) -> BaseLLM:
+        """Create an LLM provider instance.
+
+        Args:
+            provider_id: Provider identifier (openai, anthropic, etc.)
+            model: Model ID to use
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            LLM provider instance
+
+        Raises:
+            ValueError: If provider not supported
+        """
+        providers = {
+            "openai": LLMProviderFactory._create_openai,
+            "anthropic": LLMProviderFactory._create_anthropic,
+        }
+
+        if provider_id not in providers:
+            raise ValueError(f"Unsupported provider: {provider_id}")
+
+        logger.info("Creating LLM provider",
+                   provider=provider_id,
+                   model=model)
+
+        return providers[provider_id](
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+
+    @staticmethod
+    def _create_openai(
+        model: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        **kwargs
+    ) -> ChatOpenAI:
+        """Create OpenAI provider."""
+        return ChatOpenAI(
+            model=model or "gpt-4",
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+
+    @staticmethod
+    def _create_anthropic(
+        model: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        **kwargs
+    ) -> ChatAnthropic:
+        """Create Anthropic provider."""
+        return ChatAnthropic(
+            model=model or "claude-3-5-sonnet-20241022",
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+
+
+class LLMProviderManager:
+    """Manage multiple LLM providers with fallback support."""
+
+    def __init__(self, config: Dict[str, Any]):
+        """Initialize provider manager.
+
+        Args:
+            config: Provider configuration from llm.yaml
+        """
+        self.config = config
+        self.providers: Dict[str, BaseLLM] = {}
+        self.default_provider = config.get("default_provider", "openai")
+
+    def get_provider(self, provider_id: Optional[str] = None) -> BaseLLM:
+        """Get or create a provider instance.
+
+        Args:
+            provider_id: Provider ID, uses default if not specified
+
+        Returns:
+            LLM provider instance
+        """
+        if provider_id is None:
+            provider_id = self.default_provider
+
+        # Check cache
+        if provider_id in self.providers:
+            return self.providers[provider_id]
+
+        # Create provider
+        provider_config = self.config.get("providers", {}).get(provider_id, {})
+
+        provider = LLMProviderFactory.create_provider(
+            provider_id=provider_id,
+            model=provider_config.get("default_model"),
+            temperature=provider_config.get("temperature", 0.7),
+            max_tokens=provider_config.get("max_tokens", 4096),
+        )
+
+        # Cache provider
+        self.providers[provider_id] = provider
+
+        logger.info("Provider created and cached",
+                   provider=provider_id,
+                   model=provider_config.get("default_model"))
+
+        return provider
+
+    def get_available_providers(self) -> List[str]:
+        """Get list of available providers."""
+        return list(self.config.get("providers", {}).keys())
+
+    def clear_cache(self) -> None:
+        """Clear provider cache."""
+        self.providers.clear()
+        logger.info("Provider cache cleared")
+
+
+# Default provider configuration
+DEFAULT_CONFIG = {
+    "default_provider": "{{defaultProvider}}",
+    "providers": {
+{{#each providers}}
+        "{{this.id}}": {
+            "default_model": "{{this.defaultModel}}",
+            "temperature": 0.7,
+            "max_tokens": 4096,
+        },
+{{/each}}
+    }
+}
