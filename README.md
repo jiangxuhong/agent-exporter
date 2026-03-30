@@ -1,6 +1,6 @@
 # Agent Exporter Plugin
 
-🦞 Export OpenClaw agents as production-ready standalone services.
+Export OpenClaw agents as production-ready standalone services.
 
 ## Overview
 
@@ -8,15 +8,15 @@ This plugin exports your configured OpenClaw agent into a standalone service tha
 
 ## Features
 
-- ✅ **LangChain Support**: Full Python LangChain code generation
-- 🚧 **More Frameworks**: LangGraph, CrewAI (planned), LangChain4j (planned)
-- ✅ **Dual API**: REST API + WebSocket API
-- ✅ **Complete Migration**: Agent config, skills, memory, LLM providers
-- ✅ **Production Quality**: Monitoring, logging, error handling
-- 🚧 **Testing Suite**: Test generation (in development)
-- ✅ **Quality Validation**: Linting, security scanning, coverage checks
-- ✅ **Docker Support**: Production-optimized Dockerfiles
-- 🚧 **Kubernetes Ready**: K8s manifests (planned)
+- **LangChain Support**: Full Python LangChain code generation
+- **Dual API**: REST API + WebSocket API
+- **Complete Migration**: Agent config, skills, memory, LLM providers
+- **Production Quality**: Monitoring, logging, error handling
+- **Testing Suite**: Unit tests + integration tests generation
+- **Quality Validation**: File integrity, linting, security scanning, Docker build
+- **Docker Support**: Production-optimized Dockerfiles
+- **More Frameworks**: LangGraph, CrewAI (planned), LangChain4j (planned)
+- **Kubernetes Ready**: K8s manifests (planned)
 
 ## Installation
 
@@ -34,10 +34,11 @@ openclaw plugins install @openclaw/agent-exporter
 
 ```bash
 # Interactive mode (guided prompts)
-openclaw agent export
+openclaw export
 
 # With options
-openclaw agent export \
+openclaw export \
+  -a my-agent-id \
   --framework langchain \
   --language python \
   --output ./my-agent-service \
@@ -49,7 +50,9 @@ openclaw agent export \
 ```bash
 cd my-agent-service
 
-# Install dependencies
+# Create virtual environment and install dependencies
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 
 # Configure environment
@@ -74,13 +77,14 @@ curl -X POST http://localhost:8000/api/v1/chat \
 
 ## CLI Commands
 
-### `openclaw agent export`
+### `openclaw export`
 
 Export agent as standalone service.
 
 **Options:**
 
 ```
+-a, --agent <id>                Agent ID (from openclaw.json agents.list)
 -f, --framework <framework>     Framework: langchain, langgraph, crewai, langchain4j
 -l, --language <language>       Language: python, java
 -o, --output <path>             Output directory (default: ./agent-service)
@@ -109,29 +113,25 @@ Export agent as standalone service.
 
 ```bash
 # Basic export
-openclaw agent export
+openclaw export
+
+# Export specific agent
+openclaw export -a my-agent-id
 
 # Full production export
-openclaw agent export \
+openclaw export \
   --framework langchain \
   --output ./production-agent \
   --with-tests \
   --test-coverage-threshold 80 \
   --validate \
-  --with-dockerfile \
-  --with-kubernetes \
-  --with-monitoring
+  --with-dockerfile
 
 # Dry run to see what will be generated
-openclaw agent export --dry-run
-
-# Export with specific skills only
-openclaw agent export \
-  --include-skills \
-  --skills weather,calendar,email
+openclaw export --dry-run
 ```
 
-### `openclaw agent validate <service-path>`
+### `openclaw export validate <service-path>`
 
 Validate an exported service.
 
@@ -149,13 +149,13 @@ Validate an exported service.
 
 ```bash
 # Validate exported service
-openclaw agent validate ./my-agent-service
+openclaw export validate ./my-agent-service
 
 # Validate without running tests
-openclaw agent validate ./my-agent-service --skip-tests
+openclaw export validate ./my-agent-service --skip-tests
 ```
 
-### `openclaw agent test <service-path>`
+### `openclaw export test <service-path>`
 
 Run tests for an exported service.
 
@@ -172,13 +172,10 @@ Run tests for an exported service.
 
 ```bash
 # Run all tests with coverage
-openclaw agent test ./my-agent-service --coverage
+openclaw export test ./my-agent-service --coverage
 
 # Run only unit tests
-openclaw agent test ./my-agent-service --type unit
-
-# Run integration tests with verbose output
-openclaw agent test ./my-agent-service --type integration --verbose
+openclaw export test ./my-agent-service --type unit
 ```
 
 ## Generated Service Structure
@@ -199,6 +196,8 @@ my-agent-service/
 │   ├── rest.py                   # REST endpoints
 │   ├── websocket.py              # WebSocket handler
 │   └── models.py                 # Pydantic models
+├── core/                         # Core utilities
+├── monitoring/                   # Monitoring configuration
 ├── config/                       # Configuration files
 │   ├── agent.yaml
 │   ├── llm.yaml
@@ -207,9 +206,12 @@ my-agent-service/
 │   ├── long_term.md
 │   └── daily/
 ├── tests/                        # Test suite
+│   ├── conftest.py
 │   ├── unit/
 │   ├── integration/
-│   └── e2e/
+│   ├── e2e/
+│   └── fixtures/
+├── scripts/                      # Helper scripts
 ├── docker/                       # Docker configuration
 │   ├── Dockerfile
 │   └── Dockerfile.prod
@@ -285,33 +287,28 @@ Receive response:
 
 ## Testing
 
-### Run Tests
+### Run Plugin Tests
 
 ```bash
 # All tests
-pytest
+npm run test
 
-# With coverage
-pytest --cov --cov-report=html
-
-# Specific test type
-pytest tests/unit/
-pytest tests/integration/
-pytest tests/e2e/
-
-# Verbose
-pytest -v
+# Watch mode
+npm run dev
 ```
 
-### Validation
+### Validate Generated Service
 
 ```bash
 # Run full validation
-./scripts/validate_service.sh
+openclaw export validate ./my-agent-service
 
-# Run specific checks
-./scripts/lint.sh
-./scripts/security_scan.sh
+# Run tests in generated service
+cd my-agent-service
+pytest
+pytest --cov --cov-report=html
+pytest tests/unit/
+pytest tests/integration/
 ```
 
 ## Deployment
@@ -326,58 +323,48 @@ docker build -t agent-service -f docker/Dockerfile.prod .
 docker run -p 8000:8000 --env-file .env agent-service
 ```
 
-### Kubernetes
-
-```bash
-# Apply manifests
-kubectl apply -f kubernetes/
-
-# Check status
-kubectl get pods -l app=agent-service
-```
-
 ## Framework Support
 
 ### Python
 
 | Framework | Status | Description |
 |-----------|--------|-------------|
-| LangChain | ✅ Ready | Most mature, extensive integrations |
-| LangGraph | 🚧 Planned | Stateful agents, better control flow |
-| CrewAI | 🚧 Planned | Multi-agent orchestration |
+| LangChain | Ready | Full code generation with tests and validation |
+| LangGraph | Planned | Stateful agents, better control flow |
+| CrewAI | Planned | Multi-agent orchestration |
 
 ### Java
 
 | Framework | Status | Description |
 |-----------|--------|-------------|
-| LangChain4j | 🚧 Planned | Java port of LangChain |
-| Spring AI | 🚧 Planned | Spring ecosystem integration |
+| LangChain4j | Planned | Java port of LangChain |
+| Spring AI | Planned | Spring ecosystem integration |
 
 ## Quality Standards
 
-Generated services aim to meet these standards:
+Generated services are validated against:
 
-- 🚧 Test coverage ≥ 80% (test generation in development)
-- ✅ No lint errors
-- ✅ No security vulnerabilities
-- ✅ Docker build successful
-- ✅ Health check passing
-- ✅ API documentation (OpenAPI)
+- Test suite generation (unit + integration tests)
+- No lint errors
+- No security vulnerabilities
+- Docker build successful
+- Health check passing
+- API documentation (OpenAPI)
 
 ## Development Status
 
-### Phase 1: MVP (Current)
+### Phase 1: MVP (Complete)
 - [x] Plugin structure
-- [x] CLI commands
-- [x] LangChain generator (basic)
-- [ ] Test generation
-- [ ] Validation flow
+- [x] CLI commands (`export`, `export validate`, `export test`)
+- [x] LangChain generator
+- [x] Test generation (unit + integration)
+- [x] Validation flow (lint, security, docker, tests)
 
 ### Phase 2: Enhancement
 - [ ] LangGraph support
 - [ ] CrewAI support
-- [ ] Full test suite generation
-- [ ] Docker/K8s deployment
+- [ ] Docker/K8s deployment manifests
+- [ ] E2E test generation
 
 ### Phase 3: Java Support
 - [ ] LangChain4j generator
@@ -390,9 +377,3 @@ Contributions are welcome! Please see the main OpenClaw repository for guideline
 ## License
 
 MIT License - see LICENSE file for details.
-
-## Support
-
-- 📚 Documentation: https://docs.openclaw.ai
-- 💬 Discord: https://discord.com/invite/clawd
-- 🐛 Issues: https://github.com/openclaw/openclaw/issues
