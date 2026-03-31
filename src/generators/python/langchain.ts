@@ -8,6 +8,7 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as fsExtra from 'fs-extra';
 import type { ExportOptions, AgentConfig, LLMProviderConfig, SkillConfig } from '../../types.js';
+import { getApiKeyEnvVar } from '../../utils/llm-providers.js';
 
 export class LangChainGenerator {
   private outputDir: string;
@@ -80,177 +81,66 @@ export class LangChainGenerator {
    * Generate core files (main.py, requirements.txt, etc.)
    */
   private async generateCoreFiles(options: ExportOptions, llmConfig?: LLMProviderConfig[]): Promise<number> {
-    let count = 0;
-
-    // main.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'main.py'),
-      this.generateMainPy(options)
-    );
-    count++;
-
-    // config.py - Root configuration loader
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'config.py'),
-      this.generateConfigPy()
-    );
-    count++;
-
-    // requirements.txt
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'requirements.txt'),
-      this.generateRequirementsTxt()
-    );
-    count++;
-
-    // requirements-dev.txt
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'requirements-dev.txt'),
-      this.generateRequirementsDevTxt()
-    );
-    count++;
-
-    // pyproject.toml
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'pyproject.toml'),
-      this.generatePyprojectToml(options)
-    );
-    count++;
-
-    // pytest.ini
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'pytest.ini'),
-      this.generatePytestIni()
-    );
-    count++;
-
-    // .env.example - with correct API key variable
-    await fsExtra.outputFile(
-      path.join(this.outputDir, '.env.example'),
-      this.generateEnvExample(llmConfig || [])
-    );
-    count++;
-
-    // .gitignore
-    await fsExtra.outputFile(
-      path.join(this.outputDir, '.gitignore'),
-      this.generateGitignore()
-    );
-    count++;
-
-    return count;
+    const o = this.outputDir;
+    await Promise.all([
+      fsExtra.outputFile(path.join(o, 'main.py'),               this.generateMainPy(options)),
+      fsExtra.outputFile(path.join(o, 'config.py'),             this.generateConfigPy()),
+      fsExtra.outputFile(path.join(o, 'requirements.txt'),      this.generateRequirementsTxt()),
+      fsExtra.outputFile(path.join(o, 'requirements-dev.txt'),  this.generateRequirementsDevTxt()),
+      fsExtra.outputFile(path.join(o, 'pyproject.toml'),        this.generatePyprojectToml(options)),
+      fsExtra.outputFile(path.join(o, 'pytest.ini'),            this.generatePytestIni()),
+      fsExtra.outputFile(path.join(o, '.env.example'),          this.generateEnvExample(llmConfig || [])),
+      fsExtra.outputFile(path.join(o, '.gitignore'),            this.generateGitignore()),
+    ]);
+    return 8;
   }
 
   /**
    * Generate agent module
    */
   private async generateAgentModule(agentConfig: AgentConfig): Promise<number> {
-    let count = 0;
-
-    // agent/__init__.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'agent/__init__.py'),
-      '"""Agent module."""\n'
-    );
-    count++;
-
-    // agent/config.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'agent/config.py'),
-      this.generateAgentConfigPy(agentConfig)
-    );
-    count++;
-
-    // agent/prompts.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'agent/prompts.py'),
-      this.generateAgentPromptsPy(agentConfig)
-    );
-    count++;
-
-    // agent/memory.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'agent/memory.py'),
-      this.generateAgentMemoryPy()
-    );
-    count++;
-
-    return count;
+    const o = this.outputDir;
+    await Promise.all([
+      fsExtra.outputFile(path.join(o, 'agent/__init__.py'), '"""Agent module."""\n'),
+      fsExtra.outputFile(path.join(o, 'agent/config.py'),   this.generateAgentConfigPy(agentConfig)),
+      fsExtra.outputFile(path.join(o, 'agent/prompts.py'),  this.generateAgentPromptsPy(agentConfig)),
+      fsExtra.outputFile(path.join(o, 'agent/memory.py'),   this.generateAgentMemoryPy()),
+    ]);
+    return 4;
   }
 
   /**
    * Generate LLM module
    */
   private async generateLLMModule(llmConfig: LLMProviderConfig[]): Promise<number> {
-    let count = 0;
-
-    // llm/__init__.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'llm/__init__.py'),
-      '"""LLM module."""\n'
-    );
-    count++;
-
-    // llm/providers.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'llm/providers.py'),
-      this.generateLLMProvidersPy(llmConfig)
-    );
-    count++;
-
-    // llm/config.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'llm/config.py'),
-      this.generateLLMConfigPy()
-    );
-    count++;
-
-    return count;
+    const o = this.outputDir;
+    await Promise.all([
+      fsExtra.outputFile(path.join(o, 'llm/__init__.py'),   '"""LLM module."""\n'),
+      fsExtra.outputFile(path.join(o, 'llm/providers.py'),  this.generateLLMProvidersPy(llmConfig)),
+      fsExtra.outputFile(path.join(o, 'llm/config.py'),     this.generateLLMConfigPy()),
+    ]);
+    return 3;
   }
 
   /**
    * Generate API module
    */
   private async generateAPIModule(options: ExportOptions): Promise<number> {
-    let count = 0;
+    const o = this.outputDir;
+    const writes = [
+      fsExtra.outputFile(path.join(o, 'api/__init__.py'), '"""API module."""\n'),
+      fsExtra.outputFile(path.join(o, 'api/rest.py'),     this.generateAPIRestPy(options)),
+      fsExtra.outputFile(path.join(o, 'api/models.py'),   this.generateAPIModelsPy()),
+      fsExtra.outputFile(path.join(o, 'api/errors.py'),   this.generateAPIErrorsPy()),
+    ];
+    let count = 4;
 
-    // api/__init__.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'api/__init__.py'),
-      '"""API module."""\n'
-    );
-    count++;
-
-    // api/rest.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'api/rest.py'),
-      this.generateAPIRestPy(options)
-    );
-    count++;
-
-    // api/websocket.py
     if (options.apiTypes.includes('websocket')) {
-      await fsExtra.outputFile(
-        path.join(this.outputDir, 'api/websocket.py'),
-        this.generateAPIWebsocketPy()
-      );
+      writes.push(fsExtra.outputFile(path.join(o, 'api/websocket.py'), this.generateAPIWebsocketPy()));
       count++;
     }
 
-    // api/models.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'api/models.py'),
-      this.generateAPIModelsPy()
-    );
-    count++;
-
-    // api/errors.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'api/errors.py'),
-      this.generateAPIErrorsPy()
-    );
-    count++;
-
+    await Promise.all(writes);
     return count;
   }
 
@@ -258,34 +148,20 @@ export class LangChainGenerator {
    * Generate skills module
    */
   private async generateSkillsModule(skills: SkillConfig[]): Promise<number> {
-    let count = 0;
+    // skills/__init__.py + each skill's two files in parallel
+    await Promise.all([
+      fsExtra.outputFile(path.join(this.outputDir, 'skills/__init__.py'), '"""Skills module."""\n'),
+      ...skills.map(skill => {
+        const skillDir = path.join(this.outputDir, 'skills', skill.name);
+        return Promise.all([
+          // outputFile creates intermediate dirs automatically
+          fsExtra.outputFile(path.join(skillDir, '__init__.py'), `"""${skill.name} skill."""\n`),
+          fsExtra.outputFile(path.join(skillDir, 'tool.py'), this.generateSkillToolPy(skill)),
+        ]);
+      }),
+    ]);
 
-    // skills/__init__.py
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'skills/__init__.py'),
-      '"""Skills module."""\n'
-    );
-    count++;
-
-    // Generate each skill
-    for (const skill of skills) {
-      const skillDir = path.join(this.outputDir, 'skills', skill.name);
-      await fsExtra.ensureDir(skillDir);
-
-      await fsExtra.outputFile(
-        path.join(skillDir, '__init__.py'),
-        `"""${skill.name} skill."""\n`
-      );
-      count++;
-
-      await fsExtra.outputFile(
-        path.join(skillDir, 'tool.py'),
-        this.generateSkillToolPy(skill)
-      );
-      count++;
-    }
-
-    return count;
+    return 1 + skills.length * 2;
   }
 
   /**
@@ -296,58 +172,35 @@ export class LangChainGenerator {
     llmConfig: LLMProviderConfig[],
     options: ExportOptions
   ): Promise<number> {
-    let count = 0;
-
-    // config/agent.yaml
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'config/agent.yaml'),
-      this.generateAgentYaml(agentConfig)
-    );
-    count++;
-
-    // config/llm.yaml
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'config/llm.yaml'),
-      this.generateLLMYaml(llmConfig)
-    );
-    count++;
-
-    // config/api.yaml
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'config/api.yaml'),
-      this.generateApiYaml(options)
-    );
-    count++;
-
-    return count;
+    const o = this.outputDir;
+    await Promise.all([
+      fsExtra.outputFile(path.join(o, 'config/agent.yaml'), this.generateAgentYaml(agentConfig)),
+      fsExtra.outputFile(path.join(o, 'config/llm.yaml'),   this.generateLLMYaml(llmConfig)),
+      fsExtra.outputFile(path.join(o, 'config/api.yaml'),   this.generateApiYaml(options)),
+    ]);
+    return 3;
   }
 
   /**
    * Generate memory files
    */
   private async generateMemoryFiles(agentConfig: AgentConfig): Promise<number> {
+    const writes: Promise<void>[] = [];
     let count = 0;
 
-    // memory/long_term.md
     if (agentConfig.memoryMd) {
-      await fsExtra.outputFile(
-        path.join(this.outputDir, 'memory/long_term.md'),
-        agentConfig.memoryMd
-      );
+      writes.push(fsExtra.outputFile(path.join(this.outputDir, 'memory/long_term.md'), agentConfig.memoryMd));
       count++;
     }
 
-    // memory/daily/*.md
     if (agentConfig.dailyMemory) {
       for (const [filename, content] of Object.entries(agentConfig.dailyMemory)) {
-        await fsExtra.outputFile(
-          path.join(this.outputDir, 'memory/daily', filename),
-          content
-        );
+        writes.push(fsExtra.outputFile(path.join(this.outputDir, 'memory/daily', filename), content));
         count++;
       }
     }
 
+    await Promise.all(writes);
     return count;
   }
 
@@ -364,37 +217,14 @@ export class LangChainGenerator {
    * Generate Docker files
    */
   private async generateDockerFiles(options: ExportOptions): Promise<number> {
-    let count = 0;
-
-    // docker/Dockerfile
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'docker/Dockerfile'),
-      this.generateDockerfile()
-    );
-    count++;
-
-    // docker/Dockerfile.prod
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'docker/Dockerfile.prod'),
-      this.generateDockerfileProd()
-    );
-    count++;
-
-    // docker/.dockerignore
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'docker/.dockerignore'),
-      this.generateDockerignore()
-    );
-    count++;
-
-    // docker-compose.yml
-    await fsExtra.outputFile(
-      path.join(this.outputDir, 'docker-compose.yml'),
-      this.generateDockerComposeYml(options)
-    );
-    count++;
-
-    return count;
+    const o = this.outputDir;
+    await Promise.all([
+      fsExtra.outputFile(path.join(o, 'docker/Dockerfile'),      this.generateDockerfile()),
+      fsExtra.outputFile(path.join(o, 'docker/Dockerfile.prod'), this.generateDockerfileProd()),
+      fsExtra.outputFile(path.join(o, 'docker/.dockerignore'),   this.generateDockerignore()),
+      fsExtra.outputFile(path.join(o, 'docker-compose.yml'),     this.generateDockerComposeYml(options)),
+    ]);
+    return 4;
   }
 
   /**
@@ -409,8 +239,6 @@ export class LangChainGenerator {
     return 1;
   }
 
-  // File content generators will be implemented in the next message
-  // to keep this file manageable
 
   private generateMainPy(options: ExportOptions): string {
     return `"""
@@ -666,7 +494,7 @@ markers =
    */
   private generateEnvExample(llmConfig: LLMProviderConfig[]): string {
     const provider = llmConfig[0];
-    const apiKeyEnv = provider ? this.getApiKeyEnvVar(provider.id) : 'OPENAI_API_KEY';
+    const apiKeyEnv = provider ? getApiKeyEnvVar(provider.id) : 'OPENAI_API_KEY';
 
     return `# LLM Provider API Keys
 # Configure the API key for your provider
@@ -937,7 +765,7 @@ class AgentMemory:
     const baseUrl = provider.baseUrl;
 
     // Determine environment variable for API key
-    const apiKeyEnv = this.getApiKeyEnvVar(providerId);
+    const apiKeyEnv = getApiKeyEnvVar(providerId);
     // Escape baseUrl for Python string
     const baseUrlStr = baseUrl ? `"${baseUrl}"` : 'None';
 
@@ -1113,20 +941,6 @@ def get_llm_client() -> LLMClient:
         _llm_client = LLMClient(llm_config)
     return _llm_client
 `;
-  }
-
-  /**
-   * Get the environment variable name for API key based on provider
-   */
-  private getApiKeyEnvVar(providerId: string): string {
-    const envMap: Record<string, string> = {
-      openai: 'OPENAI_API_KEY',
-      anthropic: 'ANTHROPIC_API_KEY',
-      google: 'GOOGLE_API_KEY',
-      gemini: 'GOOGLE_API_KEY',
-      zai: 'ZHIPU_API_KEY',
-    };
-    return envMap[providerId.toLowerCase()] || `${providerId.toUpperCase()}_API_KEY`;
   }
 
   private generateLLMConfigPy(): string {
@@ -1653,7 +1467,7 @@ ${provider.models.map(m => `  - id: "${m.id}"
     const provider = llmConfig?.[0];
     const providerName = provider?.name || provider?.id || 'OpenAI';
     const modelName = provider?.defaultModel || 'gpt-4';
-    const apiKeyEnv = provider ? this.getApiKeyEnvVar(provider.id) : 'OPENAI_API_KEY';
+    const apiKeyEnv = provider ? getApiKeyEnvVar(provider.id) : 'OPENAI_API_KEY';
     const port = options.port ?? 8000;
 
     return `# Agent Service

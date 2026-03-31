@@ -128,8 +128,7 @@ export class AgentExporter {
       }
 
       if (options.runTests) {
-        spinner = ora('Running tests...').start();
-        spinner.succeed('Tests completed');
+        console.warn(chalk.yellow('⚠️  --run-tests is not yet implemented'));
       }
 
       result.success = true;

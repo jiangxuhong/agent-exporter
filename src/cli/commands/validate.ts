@@ -45,8 +45,9 @@ export async function runValidateCommand(args: ValidateArgs): Promise<void> {
       process.exit(1);
     }
 
-  } catch (error: any) {
-    console.error(chalk.red(`\n❌ Error: ${error.message}`));
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(chalk.red(`\n❌ Error: ${message}`));
     process.exit(1);
   }
 }

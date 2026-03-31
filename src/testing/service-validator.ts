@@ -79,7 +79,7 @@ export class ServiceValidator {
   private async runLinting(result: ValidationResult): Promise<void> {
     try {
       // Run flake8
-      const { stdout } = await execAsync('flake8 agent api llm core --max-line-length=100', {
+      await execAsync('flake8 agent api llm core --max-line-length=100', {
         cwd: this.servicePath,
       });
 
@@ -109,35 +109,21 @@ export class ServiceValidator {
    * Run security scan
    */
   private async runSecurityScan(result: ValidationResult): Promise<void> {
+    // bandit exits with non-zero when issues are found, so results always arrive via catch
     try {
-      // Run bandit
-      const { stdout } = await execAsync('bandit -r agent api llm core -f json', {
+      await execAsync('bandit -r agent api llm core -f json', {
         cwd: this.servicePath,
       });
-
-      const report = JSON.parse(stdout);
-      const issues = report.results || [];
-
-      result.metrics.securityIssues = issues.length;
-
-      issues.forEach((issue: any) => {
-        result.errors.push({
-          type: 'security-issue',
-          message: issue.issue_text,
-          file: issue.filename,
-          line: issue.line_number,
-        });
-      });
-
-    } catch (error: any) {
-      // bandit exits with non-zero if issues found
+      result.metrics.securityIssues = 0;
+    } catch (error: unknown) {
       try {
-        const report = JSON.parse(error.stdout);
-        const issues = report.results || [];
+        const err = error as { stdout?: string };
+        const report = JSON.parse(err.stdout ?? '{}');
+        const issues: any[] = report.results || [];
 
         result.metrics.securityIssues = issues.length;
 
-        issues.forEach((issue: any) => {
+        for (const issue of issues) {
           const severity = issue.issue_severity;
           if (severity === 'HIGH' || severity === 'MEDIUM') {
             result.errors.push({
@@ -153,9 +139,8 @@ export class ServiceValidator {
               file: issue.filename,
             });
           }
-        });
+        }
       } catch {
-        // Failed to parse report
         result.warnings.push({
           type: 'security-scan',
           message: 'Failed to run security scan',

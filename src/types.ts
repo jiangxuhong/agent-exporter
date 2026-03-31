@@ -82,9 +82,6 @@ export const LLMProviderConfigSchema = z.object({
 });
 export type LLMProviderConfig = z.infer<typeof LLMProviderConfigSchema>;
 
-// Re-export for utility modules
-export type { LLMProviderConfig as LLMProviderConfigType };
-
 // Validation result
 export const ValidationResultSchema = z.object({
   success: z.boolean(),

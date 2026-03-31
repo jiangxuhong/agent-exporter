@@ -18,6 +18,7 @@ export function getCoverageColor(coverage: number, threshold = 80): typeof chalk
  * Print section header with separator
  */
 export function printSectionHeader(title: string): void {
+  console.log('');
   console.log(chalk.bold(title));
   console.log(chalk.gray('─'.repeat(SEPARATOR_WIDTH)));
 }

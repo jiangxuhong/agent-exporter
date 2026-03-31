@@ -62,16 +62,6 @@ export class ConfigReader {
    * Read agent configuration from workspace
    */
   async readAgentConfig(): Promise<AgentConfig> {
-    const config: AgentConfig = {
-      agentsMd: '',
-      soulMd: '',
-      userMd: '',
-      memoryMd: '',
-      identityMd: '',
-      toolsMd: '',
-      dailyMemory: {},
-    };
-
     const wp = this.workspacePath;
     const [agentsMd, soulMd, userMd, memoryMd, identityMd, toolsMd, dailyMemory] = await Promise.all([
       this.readFile(path.join(wp, 'AGENTS.md')),
@@ -83,15 +73,7 @@ export class ConfigReader {
       this.readDailyMemory(path.join(wp, 'memory')),
     ]);
 
-    config.agentsMd = agentsMd;
-    config.soulMd = soulMd;
-    config.userMd = userMd;
-    config.memoryMd = memoryMd;
-    config.identityMd = identityMd;
-    config.toolsMd = toolsMd;
-    config.dailyMemory = dailyMemory;
-
-    return config;
+    return { agentsMd, soulMd, userMd, memoryMd, identityMd, toolsMd, dailyMemory };
   }
 
   /**

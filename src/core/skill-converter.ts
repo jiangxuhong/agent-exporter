@@ -41,19 +41,15 @@ export class SkillConverter {
     workspacePath: string,
     framework: Framework
   ): Promise<SkillConfig[]> {
-    const skills: SkillConfig[] = [];
-
-    // Convert workspace skills
     const workspaceSkillsDir = path.join(workspacePath, 'skills');
-    const workspaceSkills = await this.convertSkillsFromDir(workspaceSkillsDir, framework);
-    skills.push(...workspaceSkills);
-
-    // Convert global skills
     const globalSkillsDir = path.join(process.env.HOME || '', '.agents', 'skills');
-    const globalSkills = await this.convertSkillsFromDir(globalSkillsDir, framework);
-    skills.push(...globalSkills);
 
-    return skills;
+    const [workspaceSkills, globalSkills] = await Promise.all([
+      this.convertSkillsFromDir(workspaceSkillsDir, framework),
+      this.convertSkillsFromDir(globalSkillsDir, framework),
+    ]);
+
+    return [...workspaceSkills, ...globalSkills];
   }
 
   /**

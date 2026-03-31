@@ -11,6 +11,7 @@ import ora from 'ora';
 import inquirer from 'inquirer';
 import type { ExportOptions, ExportResult } from '../../types.js';
 import { AgentExporter } from '../../core/exporter.js';
+import { printSectionHeader } from '../../utils/display.js';
 
 interface ExportArgs {
   agent?: string;
@@ -107,10 +108,21 @@ export async function runExportCommand(args: ExportArgs): Promise<void> {
     // Show results
     showExportResult(result, options);
 
-  } catch (error: any) {
-    console.error(chalk.red(`\n❌ Error: ${error.message}`));
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(chalk.red(`\n❌ Error: ${message}`));
     process.exit(1);
   }
+}
+
+/**
+ * Derive language from framework selection
+ */
+function deriveLanguage(args: ExportArgs): ExportArgs {
+  if (!args.language && args.framework) {
+    return { ...args, language: args.framework === 'langchain4j' ? 'java' : 'python' };
+  }
+  return args;
 }
 
 /**
@@ -131,19 +143,6 @@ async function promptForOptions(args: ExportArgs): Promise<ExportArgs> {
         { name: 'LangChain4j (Java)', value: 'langchain4j' },
       ],
       default: 'langchain',
-    });
-  }
-
-  if (!args.language) {
-    questions.push({
-      type: 'list',
-      name: 'language',
-      message: 'Select language:',
-      choices: [
-        { name: 'Python', value: 'python' },
-        { name: 'Java', value: 'java' },
-      ],
-      default: 'python',
     });
   }
 
@@ -215,14 +214,13 @@ async function promptForOptions(args: ExportArgs): Promise<ExportArgs> {
 
   // Return args as-is if no questions needed
   if (questions.length === 0) {
-    return args;
+    return deriveLanguage(args);
   }
 
   // In non-interactive mode, apply defaults instead of prompting
   if (!process.stdin.isTTY) {
     const defaults: Partial<ExportArgs> = {
       framework: 'langchain',
-      language: 'python',
       output: './agent-service',
       apiTypes: 'rest,websocket',
       includeMemory: true,
@@ -231,20 +229,19 @@ async function promptForOptions(args: ExportArgs): Promise<ExportArgs> {
       validate: true,
       withDockerfile: true,
     };
-    return { ...defaults, ...args };
+    return deriveLanguage({ ...defaults, ...args });
   }
 
   // Prompt and merge answers
   const answers = await inquirer.prompt(questions);
-  return { ...args, ...answers };
+  return deriveLanguage({ ...args, ...answers });
 }
 
 /**
  * Show export result
  */
 function showExportResult(result: ExportResult, options: ExportOptions): void {
-  console.log('\n' + chalk.bold('Export Results'));
-  console.log(chalk.gray('─'.repeat(50)));
+  printSectionHeader('Export Results');
 
   if (result.success) {
     console.log(chalk.green('✅ Export successful!'));
@@ -278,8 +275,7 @@ function showExportResult(result: ExportResult, options: ExportOptions): void {
     }
   }
 
-  console.log('\n' + chalk.bold('Next Steps'));
-  console.log(chalk.gray('─'.repeat(50)));
+  printSectionHeader('Next Steps');
   console.log(`1. Navigate to the service:`);
   console.log(chalk.cyan(`   cd ${result.outputDir}`));
   console.log(`\n2. Install dependencies:`);
