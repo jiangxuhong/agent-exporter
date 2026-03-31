@@ -48,24 +48,5 @@
       }
     },
     "additionalProperties": false
-  },
-  "cli": {
-    "commands": [
-      {
-        "name": "agent export",
-        "description": "Export agent as standalone service",
-        "handler": "./dist/cli/commands/export.js"
-      },
-      {
-        "name": "agent validate",
-        "description": "Validate exported service",
-        "handler": "./dist/cli/commands/validate.js"
-      },
-      {
-        "name": "agent test",
-        "description": "Run tests for exported service",
-        "handler": "./dist/cli/commands/test.js"
-      }
-    ]
   }
 }
